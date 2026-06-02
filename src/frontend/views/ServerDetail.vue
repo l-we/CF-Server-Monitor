@@ -476,14 +476,14 @@ const initCharts = () => {
     },
     elements: {
       point: { radius: 0, hoverRadius: 5, hitRadius: 10, borderWidth: 0, hoverBorderWidth: 2, hoverBorderColor: '#fff' },
-      line: { tension: 0.4, borderWidth: 1.5, fill: false, spanGaps: true }
+      line: { tension: 0.4, borderWidth: 1.5, fill: false, spanGaps: false }
     }
   })
 
   if (cpuChartRef.value) {
     charts.cpu = new Chart(cpuChartRef.value.getContext('2d'), {
       type: 'line',
-      data: { datasets: [{ label: 'CPU', data: [], borderColor: '#00d4aa', backgroundColor: 'rgba(0, 212, 170, 0.05)', fill: true, borderWidth: 1.5 }] },
+      data: { datasets: [{ label: 'CPU', data: [], borderColor: '#00d4aa', backgroundColor: 'rgba(0, 212, 170, 0.05)', fill: true, borderWidth: 1.5, spanGaps: false }] },
       options: createChartOptions('%')
     })
   }
@@ -493,8 +493,8 @@ const initCharts = () => {
       type: 'line',
       data: {
         datasets: [
-          { label: 'Memory', data: [], borderColor: '#b392f0', backgroundColor: 'rgba(179, 146, 240, 0.05)', fill: true, borderWidth: 1.5 },
-          { label: 'Swap', data: [], borderColor: '#ffb870', backgroundColor: 'rgba(255, 184, 112, 0.05)', fill: true, borderWidth: 1.5 }
+          { label: 'Memory', data: [], borderColor: '#b392f0', backgroundColor: 'rgba(179, 146, 240, 0.05)', fill: true, borderWidth: 1.5, spanGaps: false },
+          { label: 'Swap', data: [], borderColor: '#ffb870', backgroundColor: 'rgba(255, 184, 112, 0.05)', fill: true, borderWidth: 1.5, spanGaps: false }
         ]
       },
       options: createChartOptions('%', true)
@@ -504,7 +504,7 @@ const initCharts = () => {
   if (diskChartRef.value) {
     charts.disk = new Chart(diskChartRef.value.getContext('2d'), {
       type: 'line',
-      data: { datasets: [{ label: 'Disk', data: [], borderColor: '#39d2c0', backgroundColor: 'rgba(57, 210, 192, 0.05)', fill: true, borderWidth: 1.5 }] },
+      data: { datasets: [{ label: 'Disk', data: [], borderColor: '#39d2c0', backgroundColor: 'rgba(57, 210, 192, 0.05)', fill: true, borderWidth: 1.5, spanGaps: false }] },
       options: createChartOptions('%')
     })
   }
@@ -512,7 +512,7 @@ const initCharts = () => {
   if (procChartRef.value) {
     charts.proc = new Chart(procChartRef.value.getContext('2d'), {
       type: 'line',
-      data: { datasets: [{ label: 'Processes', data: [], borderColor: '#f778ba', backgroundColor: 'rgba(247, 120, 186, 0.03)', fill: true, borderWidth: 1.5 }] },
+      data: { datasets: [{ label: 'Processes', data: [], borderColor: '#f778ba', backgroundColor: 'rgba(247, 120, 186, 0.03)', fill: true, borderWidth: 1.5, spanGaps: false }] },
       options: createChartOptions('', false, 'Count')
     })
   }
@@ -522,8 +522,8 @@ const initCharts = () => {
       type: 'line',
       data: {
         datasets: [
-          { label: 'Download', data: [], borderColor: '#00d4aa', backgroundColor: 'rgba(0, 212, 170, 0.03)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5 },
-          { label: 'Upload', data: [], borderColor: '#4da6ff', backgroundColor: 'rgba(77, 166, 255, 0.03)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5 }
+          { label: 'Download', data: [], borderColor: '#00d4aa', backgroundColor: 'rgba(0, 212, 170, 0.03)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5, spanGaps: false },
+          { label: 'Upload', data: [], borderColor: '#4da6ff', backgroundColor: 'rgba(77, 166, 255, 0.03)', fill: true, tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5, spanGaps: false }
         ]
       },
       options: createChartOptions(' B/s', true)
@@ -535,8 +535,8 @@ const initCharts = () => {
       type: 'line',
       data: {
         datasets: [
-          { label: 'TCP', data: [], borderColor: '#b392f0', backgroundColor: 'transparent', tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5 },
-          { label: 'UDP', data: [], borderColor: '#f778ba', backgroundColor: 'transparent', tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5 }
+          { label: 'TCP', data: [], borderColor: '#b392f0', backgroundColor: 'transparent', tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5, spanGaps: false },
+          { label: 'UDP', data: [], borderColor: '#f778ba', backgroundColor: 'transparent', tension: 0.4, borderWidth: 1.5, pointRadius: 0, hoverRadius: 5, spanGaps: false }
         ]
       },
       options: createChartOptions('', true, 'Connections')
@@ -599,6 +599,7 @@ const updateChartDataset = (chart, datasetIndex, dataPoints, xField = 'timestamp
     })
 
     processedData.sort((a, b) => a.x - b.x)
+    processedData = applyGapBreak(processedData)
   }
 
   // 设置 x 轴范围
@@ -609,6 +610,35 @@ const updateChartDataset = (chart, datasetIndex, dataPoints, xField = 'timestamp
 
   dataset.data = processedData
   chart.update('none')
+}
+
+const applyGapBreak = (data) => {
+  if (!data || data.length < 2) return data
+  
+  let maxGapMs = null
+  if (currentHours.value <= 1) {
+    maxGapMs = 5 * 60 * 1000
+  } else if (currentHours.value <= 6) {
+    maxGapMs = 10 * 60 * 1000
+  } else if (currentHours.value <= 12) {
+    maxGapMs = 15 * 60 * 1000
+  } else if (currentHours.value <= 24) {
+    maxGapMs = 20 * 60 * 1000
+  } else {
+    maxGapMs = 30 * 60 * 1000
+  }
+  
+  const result = []
+  for (let i = 0; i < data.length; i++) {
+    result.push(data[i])
+    if (i < data.length - 1) {
+      const gap = data[i + 1].x - data[i].x
+      if (gap > maxGapMs) {
+        result.push({ x: data[i].x + gap / 2, y: null })
+      }
+    }
+  }
+  return result
 }
 
 const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
@@ -636,6 +666,7 @@ const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
     })
 
     processedData.sort((a, b) => a.x - b.x)
+    processedData = applyGapBreak(processedData)
   }
 
   // 设置 x 轴范围
@@ -682,9 +713,13 @@ const updateLoadChart = (chart, dataPoints) => {
     chart.options.scales.x.max = endTime
   }
 
-  chart.data.datasets[0].data = processedData.map(d => ({ x: d.x, y: d.load1 }))
-  chart.data.datasets[1].data = processedData.map(d => ({ x: d.x, y: d.load5 }))
-  chart.data.datasets[2].data = processedData.map(d => ({ x: d.x, y: d.load15 }))
+  const load1Data = processedData.map(d => ({ x: d.x, y: d.load1 }))
+  const load5Data = processedData.map(d => ({ x: d.x, y: d.load5 }))
+  const load15Data = processedData.map(d => ({ x: d.x, y: d.load15 }))
+  
+  chart.data.datasets[0].data = applyGapBreak(load1Data)
+  chart.data.datasets[1].data = applyGapBreak(load5Data)
+  chart.data.datasets[2].data = applyGapBreak(load15Data)
   chart.update('none')
 }
 
